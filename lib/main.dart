@@ -16,12 +16,11 @@ class _MapScreenState extends State<MapScreen> {
   final MapController _controller = MapController();
   StreamSubscription<Position>? _gpsSubscription;
   
-  // Variables d'état
   LatLng _pos = const LatLng(0, 0); 
   double _speed = 0.0;
   List<LatLng> _route = [];
   bool _isGpsLocked = false;
-  bool _isMapReady = false; // Sécurité anti-crash pour le MapController
+  bool _isMapReady = false; 
 
   @override
   void initState() {
@@ -37,12 +36,10 @@ class _MapScreenState extends State<MapScreen> {
   }
 
   Future<void> _initGPS() async {
-    // 1. Vérification du service de localisation
     if (!await Geolocator.isLocationServiceEnabled()) {
       return;
     }
     
-    // 2. Gestion des permissions
     LocationPermission perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.none) {
       perm = await Geolocator.requestPermission();
@@ -51,7 +48,6 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
     
-    // 3. Fix GPS immédiat au démarrage (Comme Waze)
     try {
       Position initialPos = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.bestForNavigation
@@ -63,7 +59,6 @@ class _MapScreenState extends State<MapScreen> {
         });
       }
     } catch (e) {
-      // En cas d'échec du fix initial, on tente de récupérer la dernière position connue
       Position? lastPos = await Geolocator.getLastKnownPosition();
       if (lastPos != null && mounted) {
         setState(() {
@@ -71,19 +66,17 @@ class _MapScreenState extends State<MapScreen> {
           _isGpsLocked = true;
         });
       } else {
-        // Fallback ultime pour débloquer l'écran si le GPS est totalement inside/indisponible
         setState(() {
-          _pos = const LatLng(46.2276, 2.2137); // Centre de la France en attendant le signal
+          _pos = const LatLng(46.2276, 2.2137); 
           _isGpsLocked = true;
         });
       }
     }
 
-    // 4. Flux de mise à jour en temps réel
     _gpsSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation, 
-        distanceFilter: 2, // Sensibilité à 2 mètres pour la réactivité sur route
+        distanceFilter: 2, 
       ),
     ).listen((Position pos) {
       if (!mounted) return;
@@ -92,7 +85,6 @@ class _MapScreenState extends State<MapScreen> {
         _speed = pos.speed > 0 ? pos.speed * 3.6 : 0.0;
       });
       
-      // On déplace la caméra uniquement si le composant graphique de la carte est prêt
       if (_isMapReady) {
         _controller.move(_pos, _controller.camera.zoom);
       }
@@ -101,7 +93,6 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // Écran d'attente sombre pendant l'acquisition du signal GPS initial
     if (!_isGpsLocked) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -116,14 +107,13 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // Cartographie
           FlutterMap(
             mapController: _controller,
             options: MapOptions(
               initialCenter: _pos, 
               initialZoom: 16.0,
               onMapReady: () {
-                _isMapReady = true; // La carte est chargée, le contrôleur peut être utilisé sereinement
+                _isMapReady = true; 
               },
             ),
             children: [
@@ -155,8 +145,6 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ],
           ),
-          
-          // Barre de recherche supérieure
           Positioned(
             top: 50, 
             left: 15, 
@@ -185,8 +173,6 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
           ),
-          
-          // Compteur de vitesse style Waze
           Positioned(
             bottom: 30, 
             left: 20,
