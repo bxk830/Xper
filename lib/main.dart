@@ -15,9 +15,12 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final MapController _controller = MapController();
   StreamSubscription<Position>? _gpsSubscription;
-  LatLng _pos = const LatLng(48.8566, 2.3522); // Paris par défaut avant le fix GPS
+  
+  // Variables d'état
+  LatLng _pos = const LatLng(0, 0); 
   double _speed = 0.0;
   List<LatLng> _route = [];
+  bool _isGpsLocked = false;
 
   @override
   void initState() {
@@ -27,30 +30,53 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   void dispose() {
-    // Coupe proprement la détection GPS quand l'application se ferme
     _gpsSubscription?.cancel();
     super.dispose();
   }
 
   Future<void> _initGPS() async {
-    if (!await Geolocator.isLocationServiceEnabled()) return;
+    // 1. Vérification du service de localisation
+    if (!await Geolocator.isLocationServiceEnabled()) {
+      return;
+    }
     
+    // 2. Gestion stricte des permissions
     LocationPermission perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.none) {
       perm = await Geolocator.requestPermission();
-      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
+    }
+    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+      return;
     }
     
+    // 3. Fix GPS immédiat au démarrage (Comme Waze)
+    try {
+      Position initialPos = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.bestForNavigation
+      );
+      if (mounted) {
+        setState(() {
+          _pos = LatLng(initialPos.latitude, initialPos.longitude);
+          _isGpsLocked = true;
+        });
+      }
+    } catch (e) {
+      // En cas d'échec du fix immédiat, on force le déblocage de l'interface
+      setState(() {
+        _isGpsLocked = true;
+      });
+    }
+
+    // 4. Flux de mise à jour en mouvement
     _gpsSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation, 
-        distanceFilter: 5,
+        distanceFilter: 2, // Sensibilité accrue à 2 mètres pour coller à la route
       ),
     ).listen((Position pos) {
       if (!mounted) return;
       setState(() {
         _pos = LatLng(pos.latitude, pos.longitude);
-        // Sécurité pour éviter les relevés de vitesse négatifs en cas de perte de signal
         _speed = pos.speed > 0 ? pos.speed * 3.6 : 0.0;
       });
       _controller.move(_pos, _controller.camera.zoom);
@@ -59,15 +85,27 @@ class _MapScreenState extends State<MapScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // Écran d'attente pendant l'acquisition du signal GPS initial
+    if (!_isGpsLocked) {
+      return const Scaffold(
+        backgroundColor: Colors.black,
+        body: Center(
+          child: CircularProgressIndicator(
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
+          ),
+        ),
+      );
+    }
+
     return Scaffold(
       body: Stack(
         children: [
-          // Cartographie web (Aucun asset requis)
+          // Cartographie
           FlutterMap(
             mapController: _controller,
             options: MapOptions(
               initialCenter: _pos, 
-              initialZoom: 14.0,
+              initialZoom: 16.0, // Zoom plus proche pour la navigation
             ),
             children: [
               TileLayer(
@@ -121,7 +159,7 @@ class _MapScreenState extends State<MapScreen> {
                   setState(() {
                     _route = [
                       _pos, 
-                      LatLng(_pos.latitude + 0.02, _pos.longitude + 0.02),
+                      LatLng(_pos.latitude + 0.01, _pos.longitude + 0.01),
                     ];
                   });
                 },
@@ -129,7 +167,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
           
-          // Compteur de vitesse circulaire
+          // Compteur de vitesse
           Positioned(
             bottom: 30, 
             left: 20,
