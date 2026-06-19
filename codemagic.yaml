@@ -1,37 +1,33 @@
 workflows:
-  ios-xper-release:
-    name: Build iOS Automatique - Xper
+  ios-build:
+    name: iOS App Build
     instance_type: mac_mini_m1
-    max_build_duration: 30
     environment:
       flutter: stable
       xcode: latest
-      cocoapods: default
     triggering:
       events:
         - push
       branch_patterns:
-        - pattern: main
+        - pattern: '*'
+          include: true
     scripts:
-      - name: Generation du projet iOS et configuration GPS
+      - name: Generer l environnement iOS et configurer le GPS
         script: |
-          flutter create --org com.bx --project-name xper --platforms=ios .
+          flutter create . --platforms=ios
           plutil -insert NSLocationWhenInUseUsageDescription -string "GPS necessaire pour la vitesse." ios/Runner/Info.plist
           plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS necessaire en arriere-plan." ios/Runner/Info.plist
-      - name: Recuperation des dependances Flutter
+      - name: Recuperer les dependances Pub
         script: |
-          flutter packages pub get
-      - name: Configuration de CocoaPods
+          flutter pub get
+      - name: Compiler pour iOS
         script: |
-          find . -name "Podfile" -execdir pod install \;
-      - name: Compilation brute de l application via Ad-Hoc
+          flutter build ios --no-codesign
+      - name: Packager en IPA non signe
         script: |
-          flutter build ios --release --no-codesign --xcargs "CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES"
-      - name: Creation du fichier .ipa pour Sideloadly
-        script: |
-          mkdir -p build/ios/iphoneos/Payload
-          cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
           cd build/ios/iphoneos
+          mkdir Payload
+          cp -r Runner.app Payload/
           zip -r Xper.ipa Payload
     artifacts:
-      - build/ios/iphoneos/Xper.ipa
+      - build/ios/iphoneos/*.ipa
