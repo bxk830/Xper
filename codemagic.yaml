@@ -14,7 +14,7 @@ workflows:
       events:
         - push
       branches:
-        - main # Déclenche le build dès que vous poussez sur la branche principale
+        - main
     scripts:
       - name: Initialisation du trousseau de clés (Code Signing)
         script: |
