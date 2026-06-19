@@ -20,7 +20,7 @@ class _WazeCloneAppState extends State<WazeCloneApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'CustomNav',
+      title: 'Xper',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
         brightness: _isDarkMode ? Brightness.dark : Brightness.light,
@@ -47,9 +47,9 @@ class MapScreen extends StatefulWidget {
 class _MapScreenState extends State<MapScreen> {
   final MapController _mapController = MapController();
   LatLng _userPosition = const LatLng(48.8566, 2.3522); // Paris par défaut
-  double _currentSpeed = 0.0; // En km/h
+  double _currentSpeed = 0.0; 
   
-  List<Marker> _alertMarkers = [];
+  final List<Marker> _alertMarkers = [];
   List<LatLng> _routePoints = [];
   
   double _kmRemaining = 0.0;
@@ -64,7 +64,6 @@ class _MapScreenState extends State<MapScreen> {
     _initGPS();
   }
 
-  // Initialisation du suivi GPS en temps réel via les satellites
   Future<void> _initGPS() async {
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) return;
@@ -75,17 +74,14 @@ class _MapScreenState extends State<MapScreen> {
       if (permission == LocationPermission.deniedForever) return;
     }
 
-    // Écoute des mouvements de l'utilisateur
     _positionStream = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(accuracy: LocationAccuracy.bestForNavigation, distanceFilter: 5)
     ).listen((Position position) {
       if (!mounted) return;
       setState(() {
         _userPosition = LatLng(position.latitude, position.longitude);
-        // Conversion m/s en km/h
-        _currentSpeed = position.speed * 3.6; 
+        _currentSpeed = position.speed * 3.6; // Conversion m/s en km/h
         
-        // Mise à jour de l'itinéraire en temps réel si une destination existe
         if (_routePoints.isNotEmpty) {
           _updateNavigationMetrics();
         }
@@ -94,26 +90,22 @@ class _MapScreenState extends State<MapScreen> {
     });
   }
 
-  // Calcul des km restants et de l'Heure d'arrivée (ETA)
   void _updateNavigationMetrics() {
-    final Distance distance = const Distance();
-    // Distance en mètres convertie en km
+    const Distance distance = Distance();
     double meters = distance.as(LengthUnit.Meter, _userPosition, _routePoints.last);
     
     setState(() {
       _kmRemaining = meters / 1000;
       if (_currentSpeed > 10) {
-        // Calcul du temps estimé basé sur la vitesse actuelle
-        int minutesRemaining = (meters / (position) { return _currentSpeed / 3.6; } as double).round() ~/ 60;
+        double speedMps = _currentSpeed / 3.6;
+        int minutesRemaining = (meters / speedMps) ~/ 60;
         _eta = DateFormat('HH:mm').format(DateTime.now().add(Duration(minutes: minutesRemaining)));
       } else {
-        // Simulation standard si l'utilisateur est à l'arrêt
         _eta = DateFormat('HH:mm').format(DateTime.now().add(const Duration(minutes: 25)));
       }
     });
   }
 
-  // Tracer l'itinéraire (Ici simulé en ligne droite pour le mode hors-ligne pur)
   void _startNavigation(LatLng destination) {
     setState(() {
       _routePoints = [_userPosition, destination];
@@ -122,7 +114,6 @@ class _MapScreenState extends State<MapScreen> {
     _mapController.move(_userPosition, 15.0);
   }
 
-  // Ajouter une alerte à l'endroit exact du clic
   void _addAlert(String type, LatLng position, String customComment) {
     IconData icon;
     Color color;
@@ -158,15 +149,10 @@ class _MapScreenState extends State<MapScreen> {
         ),
       );
     });
-    
-    // NOTE TECHNIQUE : C'est ici que vous ajouteriez la dépendance Firebase Cloud Firestore 
-    // pour envoyer la position de l'alerte à tout le monde sans avoir de serveur à gérer :
-    // FirebaseFirestore.instance.collection('alerts').add({'lat': position.latitude, 'lng': position.longitude, 'type': type, 'comment': customComment});
   }
 
   @override
   Widget build(BuildContext context) {
-    // Style de carte OpenStreetMap (Online / Sauvegardable en local pour le Hors-ligne)
     String tileUrl = widget.isDarkMode 
       ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
       : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
@@ -174,21 +160,17 @@ class _MapScreenState extends State<MapScreen> {
     return Scaffold(
       body: Stack(
         children: [
-          // 1. LA CARTE (Bien visible)
           FlutterMap(
             mapController: _mapController,
             options: MapOptions(
               initialCenter: _userPosition,
               initialZoom: 14.0,
-              onTap: (tapPosition, latLng) {
-                // Menu contextuel au clic précis pour poser une alerte
-                _showAlertDialog(latLng);
-              },
+              onTap: (tapPosition, latLng) => _showAlertDialog(latLng),
             ),
             children: [
               TileLayer(
                 urlTemplate: tileUrl,
-                userAgentPackageName: 'com.example.customnav',
+                userAgentPackageName: 'com.bx.xper',
               ),
               PolylineLayer(
                 polylines: [
@@ -197,7 +179,6 @@ class _MapScreenState extends State<MapScreen> {
               ),
               MarkerLayer(
                 markers: [
-                  // Icône de l'utilisateur qui bouge
                   Marker(
                     point: _userPosition,
                     width: 60,
@@ -210,27 +191,26 @@ class _MapScreenState extends State<MapScreen> {
             ],
           ),
 
-          // 2. BARRE DE RECHERCHE DESTINATION (Haut de l'écran)
+          // Barre de recherche
           Positioned(
             top: 50,
             left: 15,
             right: 15,
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 15),
-              decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black2Break)]),
+              decoration: BoxDecoration(color: Theme.of(context).cardColor, borderRadius: BorderRadius.circular(30), boxShadow: const [BoxShadow(blurRadius: 10, color: Colors.black26)]),
               child: Row(
                 children: [
                   Expanded(
                     child: TextField(
                       controller: _destinationController,
-                      style: const TextStyle(fontSize: 20), // Gros texte
+                      style: const TextStyle(fontSize: 20),
                       decoration: const InputDecoration(hintText: "Où allez-vous ?", border: InputBorder.none),
                     ),
                   ),
                   IconButton(
                     icon: const Icon(Icons.search, size: 30),
                     onPressed: () {
-                      // Simulation d'une destination à 5km au Nord pour l'exemple
                       LatLng dest = LatLng(_userPosition.latitude + 0.04, _userPosition.longitude + 0.04);
                       _startNavigation(dest);
                     },
@@ -240,7 +220,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // 3. COMPTEUR DE VITESSE (Style Waze, en bas à gauche)
+          // Compteur de vitesse
           Positioned(
             bottom: 120,
             left: 20,
@@ -258,7 +238,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
 
-          // 4. PANNEAU DE NAVIGATION (En bas de l'écran)
+          // Panneau Infos d'arrivée
           if (_routePoints.isNotEmpty)
             Positioned(
               bottom: 20,
@@ -292,7 +272,7 @@ class _MapScreenState extends State<MapScreen> {
               ),
             ),
 
-          // 5. BOUTONS D'ACTIONS (Flottants à droite, uniquement des icônes)
+          // Boutons d'actions
           Positioned(
             bottom: _routePoints.isNotEmpty ? 140 : 30,
             right: 20,
@@ -309,7 +289,7 @@ class _MapScreenState extends State<MapScreen> {
                   heroTag: "report",
                   backgroundColor: Colors.redAccent,
                   child: const Icon(Icons.add_location_alt, color: Colors.white, size: 30),
-                  onPressed: () => _showAlertDialog(_userPosition), // Alerte rapide sur la position actuelle
+                  onPressed: () => _showAlertDialog(_userPosition),
                 ),
               ],
             ),
@@ -319,7 +299,6 @@ class _MapScreenState extends State<MapScreen> {
     );
   }
 
-  // Pop-up d'alerte intuitive
   void _showAlertDialog(LatLng position) {
     showModalBottomSheet(
       context: context,
@@ -352,8 +331,8 @@ class _MapScreenState extends State<MapScreen> {
                   IconButton(
                     icon: const Icon(Icons.visibility_off, color: Colors.blue, size: 50),
                     onPressed: () {
-                      // LIGNE PERSONNALISABLE : Ajoutez ici vos propres types de signalements personnalisés (ex: Météo, Radar, Police, etc.)
-                      _addAlert('personnalise', position, 'Zone de danger temporaire');
+                      // LIGNE PERSONNALISABLE : Modifiez le texte ci-dessous pour changer votre troisième type d'alerte.
+                      _addAlert('personnalise', position, 'Danger temporaire sur la route');
                       Navigator.pop(context);
                     },
                   ),
