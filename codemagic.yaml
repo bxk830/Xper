@@ -16,7 +16,7 @@ workflows:
       branch_patterns:
         - pattern: main
     scripts:
-      - name: 🛠️ Génération automatique du dossier iOS
+      - name: Génération automatique du dossier iOS
         script: |
           flutter create --platforms=ios .
           plutil -insert NSLocationWhenInUseUsageDescription -string "GPS nécessaire pour la vitesse." ios/Runner/Info.plist
