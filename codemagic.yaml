@@ -12,26 +12,27 @@ workflows:
         - pattern: '*'
           include: true
     scripts:
-      - name: Preparation de l environnement iOS et simulation de l equipe
+      - name: Generer l environnement iOS et injecter les configurations
         script: |
           flutter create --org com.bx --project-name xper --platforms=ios .
           
-          # Insertion des clés de configuration GPS
-          plutil -insert NSLocationWhenInUseUsageDescription -string "GPS requis." ios/Runner/Info.plist
-          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS requis." ios/Runner/Info.plist
+          # Configuration des autorisations GPS
+          plutil -insert NSLocationWhenInUseUsageDescription -string "GPS requis pour l'application." ios/Runner/Info.plist
+          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS requis pour l'application." ios/Runner/Info.plist
           
-          # Injection des paramètres pour contourner la signature Xcode
+          # Simulation de l'equipe de developpement et retrait des verifications de signature
+          mkdir -p ios/Flutter
           echo "DEVELOPMENT_TEAM = NX78XYZ123" >> ios/Flutter/Release.xcconfig
-          echo "CODE_SIGN_IDENTITY = -" >> ios/Flutter/Release.xcconfig
-          echo "CODE_SIGNING_REQUIRED = NO" >> ios/Flutter/Release.xcconfig
           echo "CODE_SIGNING_ALLOWED = NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGNING_REQUIRED = NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGN_IDENTITY = " >> ios/Flutter/Release.xcconfig
       - name: Recuperer les dependances Pub
         script: |
           flutter pub get
-      - name: Compilation allegee pour iOS
+      - name: Compiler pour iOS
         script: |
           flutter build ios --release --no-codesign
-      - name: Packager en IPA pour Sideloadly
+      - name: Packager en IPA non signe pour Sideloadly
         script: |
           cd build/ios/iphoneos
           mkdir Payload
