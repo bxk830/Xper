@@ -1,95 +1,92 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:flutter_map/flutter_map.dart';
-import 'package:latlong2/latlong2.dart';
 import 'package:geolocator/geolocator.dart';
 
-void main() => runApp(const MaterialApp(home: MapScreen(), debugShowCheckedModeBanner: false));
+void main() => runApp(const MaterialApp(home: GpsDashboardScreen(), debugShowCheckedModeBanner: false));
 
-class MapScreen extends StatefulWidget {
-  const MapScreen({super.key});
+class GpsDashboardScreen extends StatefulWidget {
+  const GpsDashboardScreen({super.key});
   @override
-  State<MapScreen> createState() => _MapScreenState();
+  State<GpsDashboardScreen> createState() => _GpsDashboardScreenState();
 }
 
-class _MapScreenState extends State<MapScreen> {
-  final MapController _controller = MapController();
+class _GpsDashboardScreenState extends State<GpsDashboardScreen> {
   StreamSubscription<Position>? _gpsSubscription;
+  Timer? _uiTimer;
   
-  LatLng _pos = const LatLng(0, 0); 
-  double _speed = 0.0;
-  List<LatLng> _route = [];
+  double _targetSpeed = 0.0;
+  double _currentSpeed = 0.0;
   bool _isGpsLocked = false;
-  bool _isMapReady = false; 
+  bool _blinkState = false;
 
   @override
   void initState() {
     super.initState();
     _initGPS();
+    // Boucle de rafraîchissement fluide pour l'animation des LED et du texte
+    _uiTimer = Timer.periodic(const Duration(milliseconds: 50), (timer) {
+      if (!mounted) return;
+      setState(() {
+        // Interpolation linéaire pour fluidifier les changements brusques de vitesse du GPS
+        _currentSpeed += (_targetSpeed - _currentSpeed) * 0.15;
+        if ((_targetSpeed - _currentSpeed).abs() < 0.1) {
+          _currentSpeed = _targetSpeed;
+        }
+        _blinkState = !_blinkState;
+      });
+    });
   }
 
   @override
   void dispose() {
     _gpsSubscription?.cancel();
-    _controller.dispose();
+    _uiTimer?.cancel();
     super.dispose();
   }
 
   Future<void> _initGPS() async {
-    if (!await Geolocator.isLocationServiceEnabled()) {
-      return;
-    }
+    if (!await Geolocator.isLocationServiceEnabled()) return;
     
     LocationPermission perm = await Geolocator.checkPermission();
-    // Correction ici : on utilise 'denied' au lieu de 'none'
     if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
     }
-    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
-      return;
-    }
+    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
     
+    // Premier repérage rapide
     try {
-      Position initialPos = await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.bestForNavigation
-      );
+      Position initialPos = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.bestForNavigation);
       if (mounted) {
         setState(() {
-          _pos = LatLng(initialPos.latitude, initialPos.longitude);
+          _targetSpeed = initialPos.speed > 0 ? initialPos.speed * 3.6 : 0.0;
           _isGpsLocked = true;
         });
       }
-    } catch (e) {
-      Position? lastPos = await Geolocator.getLastKnownPosition();
-      if (lastPos != null && mounted) {
-        setState(() {
-          _pos = LatLng(lastPos.latitude, lastPos.longitude);
-          _isGpsLocked = true;
-        });
-      } else {
-        setState(() {
-          _pos = const LatLng(46.2276, 2.2137); 
-          _isGpsLocked = true;
-        });
-      }
+    } catch (_) {
+      if (mounted) setState(() => _isGpsLocked = true);
     }
 
+    // Écoute du flux en temps réel
     _gpsSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.bestForNavigation, 
-        distanceFilter: 2, 
+        accuracy: LocationAccuracy.bestForNavigation,
+        distanceFilter: 1,
       ),
     ).listen((Position pos) {
       if (!mounted) return;
       setState(() {
-        _pos = LatLng(pos.latitude, pos.longitude);
-        _speed = pos.speed > 0 ? pos.speed * 3.6 : 0.0;
+        _targetSpeed = pos.speed > 0 ? pos.speed * 3.6 : 0.0;
       });
-      
-      if (_isMapReady) {
-        _controller.move(_pos, _controller.camera.zoom);
-      }
     });
+  }
+
+  // Simulateur de régime moteur (RPM) basé sur la vitesse et des rapports de boîte virtuels
+  double _getSimulatedRPM(double speed) {
+    if (speed <= 0) return 1000;
+    if (speed < 30) return 1000 + (speed / 30) * 5500;       // Rapport 1
+    if (speed < 60) return 3000 + ((speed - 30) / 30) * 3800;  // Rapport 2
+    if (speed < 90) return 3500 + ((speed - 60) / 30) * 3500;  // Rapport 3
+    return 4000 + ((speed - 90) / 70) * 3200;                 // Rapport 4
   }
 
   @override
@@ -98,111 +95,122 @@ class _MapScreenState extends State<MapScreen> {
       return const Scaffold(
         backgroundColor: Colors.black,
         body: Center(
-          child: CircularProgressIndicator(
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue),
-          ),
+          child: CircularProgressIndicator(valueColor: AlwaysStoppedAnimation<Color>(Colors.red)),
         ),
       );
     }
 
+    double rpm = _getSimulatedRPM(_currentSpeed);
+    int totalLeds = 10;
+    // Calcul du nombre de LED à allumer (Plage de 1000 à 6800 RPM)
+    int ledsToLight = (((rpm - 1000) / 5800) * totalLeds).clamp(0, totalLeds).toInt();
+    bool isRedline = rpm >= 6300;
+
     return Scaffold(
-      body: Stack(
-        children: [
-          FlutterMap(
-            mapController: _controller,
-            options: MapOptions(
-              initialCenter: _pos, 
-              initialZoom: 16.0,
-              onMapReady: () {
-                _isMapReady = true; 
-              },
-            ),
-            children: [
-              TileLayer(
-                urlTemplate: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
-                subdomains: const ['a', 'b', 'c', 'd'],
-              ),
-              PolylineLayer(
-                polylines: [
-                  Polyline(
-                    points: _route, 
-                    strokeWidth: 4.0, 
-                    color: Colors.blue,
-                  ),
-                ],
-              ),
-              MarkerLayer(
-                markers: [
-                  Marker(
-                    point: _pos, 
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.navigation, 
-                      color: Colors.blue, 
-                      size: 40,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          Positioned(
-            top: 50, 
-            left: 15, 
-            right: 15,
-            child: Card(
-              color: Colors.black87,
-              elevation: 4,
-              child: TextField(
-                decoration: const InputDecoration(
-                  hintText: "Ou allez-vous ?", 
-                  hintStyle: TextStyle(color: Colors.white54),
-                  contentPadding: EdgeInsets.all(15), 
-                  border: InputBorder.none, 
-                  suffixIcon: Icon(Icons.search, color: Colors.white),
-                ),
-                style: const TextStyle(color: Colors.white),
-                onSubmitted: (value) {
-                  if (value.trim().isEmpty) return;
-                  setState(() {
-                    _route = [
-                      _pos, 
-                      LatLng(_pos.latitude + 0.01, _pos.longitude + 0.01),
-                    ];
-                  });
-                },
-              ),
-            ),
-          ),
-          Positioned(
-            bottom: 30, 
-            left: 20,
-            child: CircleAvatar(
-              radius: 35,
-              backgroundColor: Colors.black87,
+      backgroundColor: const Color(0xFF0A0A0A),
+      body: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+          children: [
+            // BARRE DE SHIFT LIGHTS (STYLE FORMULE 1 / RALLYE)
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
               child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Text(
-                    _speed.toStringAsFixed(0), 
-                    style: const TextStyle(
-                      color: Colors.white, 
-                      fontWeight: FontWeight.bold, 
-                      fontSize: 22,
-                    ),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: List.generate(totalLeds, (index) {
+                      Color ledColor;
+                      // Distribution des couleurs des DEL : 4 Vertes, 3 Jaunes, 3 Rouges
+                      if (index < 4) {
+                        ledColor = Colors.greenAccent;
+                      } else if (index < 7) {
+                        ledColor = Colors.amber;
+                      } else {
+                        ledColor = Colors.redAccent;
+                      }
+
+                      bool isOn = index < ledsToLight;
+                      // Effet de clignotement global au rupteur
+                      if (isRedline) {
+                        isOn = _blinkState;
+                        ledColor = Colors.red;
+                      }
+
+                      return AnimatedContainer(
+                        duration: const Duration(milliseconds: 20),
+                        width: (MediaQuery.of(context).size.width - 80) / totalLeds,
+                        height: 25,
+                        decoration: BoxDecoration(
+                          color: isOn ? ledColor : Colors.white10,
+                          borderRadius: BorderRadius.circular(4),
+                          boxShadow: isOn ? [
+                            BoxShadow(color: ledColor.withOpacity(0.6), blurRadius: 10, spreadRadius: 1)
+                          ] : [],
+                        ),
+                      );
+                    }),
                   ),
-                  const Text(
-                    'km/h', 
+                  const SizedBox(height: 10),
+                  Text(
+                    isRedline ? "SHIFT !" : "${(rpm).toStringAsFixed(0)} RPM",
                     style: TextStyle(
-                      color: Colors.white70, 
-                      fontSize: 11,
+                      color: isRedline ? Colors.redAccent : Colors.white54,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
                     ),
                   ),
                 ],
               ),
             ),
-          ),
-        ],
+
+            // COMPTEUR DE VITESSE CENTRAL NUMÉRIQUE
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _currentSpeed.toStringAsFixed(0),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 120,
+                    fontWeight: FontWeight.w900,
+                    fontFamily: 'Courier',
+                    height: 1.0,
+                  ),
+                ),
+                const Text(
+                  "KM/H",
+                  style: TextStyle(
+                    color: Colors.white38,
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 4,
+                  ),
+                ),
+              ],
+            ),
+
+            // STATUT DU SIGNAL GPS
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: const BoxDecoration(
+                    color: Colors.greenAccent,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                const Text(
+                  "GPS ACQUIRED (OFFLINE SYSTEM)",
+                  style: TextStyle(color: Colors.white24, fontSize: 11, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
