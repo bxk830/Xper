@@ -41,7 +41,8 @@ class _MapScreenState extends State<MapScreen> {
     }
     
     LocationPermission perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.none) {
+    // Correction ici : on utilise 'denied' au lieu de 'none'
+    if (perm == LocationPermission.denied) {
       perm = await Geolocator.requestPermission();
     }
     if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
