@@ -16,7 +16,7 @@ workflows:
       branch_patterns:
         - pattern: main
     scripts:
-      - name: 🛠️ Génération automatique et propre du dossier iOS
+      - name: Génération automatique et propre du dossier iOS
         script: |
           # Force la création de la structure de projet iOS native et propre directement sur le serveur
           flutter create --platforms=ios .
