@@ -16,7 +16,7 @@ workflows:
       branch_patterns:
         - pattern: main
     scripts:
-      - name: Génération automatique du dossier iOS
+      - name: 🛠️ Génération automatique du dossier iOS
         script: |
           flutter create --platforms=ios .
           plutil -insert NSLocationWhenInUseUsageDescription -string "GPS nécessaire pour la vitesse." ios/Runner/Info.plist
@@ -32,11 +32,6 @@ workflows:
           find . -name "Podfile" -execdir pod install \;
       - name: Compilation de l'application (Mode sans signature)
         script: |
-          # Le flag --no-codesign permet de valider le build sans compte Apple payant
           flutter build ipa --release --no-codesign --build-name=1.0.0 --build-number=1
     artifacts:
       - build/ios/archive/*.xcarchive
-    publishing:
-      email:
-        recipients:
-          - bx-dev@exemple.com
