@@ -16,6 +16,14 @@ workflows:
       branch_patterns:
         - pattern: main
     scripts:
+      - name: 🛠️ Génération automatique et propre du dossier iOS
+        script: |
+          # Force la création de la structure de projet iOS native et propre directement sur le serveur
+          flutter create --platforms=ios .
+          
+          # Injection automatique des permissions Satellites GPS dans le fichier généré
+          plutil -insert NSLocationWhenInUseUsageDescription -string "Cette application nécessite l'accès au GPS pour calculer votre vitesse et afficher votre position sur la carte." ios/Runner/Info.plist
+          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "Le GPS est nécessaire en arrière-plan pour continuer le suivi de la navigation." ios/Runner/Info.plist
       - name: Initialisation du trousseau de clés (Code Signing)
         script: |
           keychain initialize
