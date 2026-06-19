@@ -7,31 +7,36 @@ workflows:
       flutter: stable
       xcode: latest
       cocoapods: default
-      vars:
-        XCODE_BUNDLE_IDENTIFIER: "com.bx.xper"
-        APP_NAME: "Xper"
     triggering:
       events:
         - push
       branch_patterns:
         - pattern: main
     scripts:
-      - name: 🛠️ Génération automatique du dossier iOS
+      - name: Génération du projet iOS avec le bon Bundle ID
         script: |
-          flutter create --platforms=ios .
+          # On force la création du projet avec com.bx.xper directement
+          flutter create --org com.bx --project-name xper --platforms=ios .
+          
+          # Ajout des permissions GPS obligatoires
           plutil -insert NSLocationWhenInUseUsageDescription -string "GPS nécessaire pour la vitesse." ios/Runner/Info.plist
           plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS nécessaire en arrière-plan." ios/Runner/Info.plist
-      - name: Initialisation du trousseau de clés (Code Signing)
-        script: |
-          keychain initialize
       - name: Récupération des dépendances Flutter
         script: |
           flutter packages pub get
-      - name: Configuration de la plateforme iOS (Podfile)
+      - name: Configuration de CocoaPods
         script: |
           find . -name "Podfile" -execdir pod install \;
-      - name: Compilation de l'application (Mode sans signature)
+      - name: Compilation brute de l'application (Sans Signature)
         script: |
-          flutter build ipa --release --no-codesign --build-name=1.0.0 --build-number=1
+          # On génère le fichier Runner.app sans demander de compte Apple
+          flutter build ios --release --no-codesign
+      - name: 🗜️ Création du fichier .ipa pour Sideloadly
+        script: |
+          # Sideloadly requiert une structure spécifique : un zip Payload/ contenant l'application
+          mkdir -p build/ios/iphoneos/Payload
+          cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
+          cd build/ios/iphoneos
+          zip -r Xper.ipa Payload
     artifacts:
-      - build/ios/archive/*.xcarchive
+      - build/ios/iphoneos/Xper.ipa
