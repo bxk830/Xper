@@ -16,9 +16,9 @@ workflows:
         script: |
           flutter create --org com.bx --project-name xper --platforms=ios .
           
-          # Configuration des autorisations GPS
-          plutil -insert NSLocationWhenInUseUsageDescription -string "GPS requis pour l'application." ios/Runner/Info.plist
-          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS requis pour l'application." ios/Runner/Info.plist
+          # Configuration des autorisations GPS (Methode -replace anti-crash)
+          plutil -replace NSLocationWhenInUseUsageDescription -string "GPS requis pour l'application." ios/Runner/Info.plist
+          plutil -replace NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS requis pour l'application." ios/Runner/Info.plist
           
           # Simulation de l'equipe de developpement et retrait des verifications de signature
           mkdir -p ios/Flutter
@@ -35,7 +35,7 @@ workflows:
       - name: Packager en IPA non signe pour Sideloadly
         script: |
           cd build/ios/iphoneos
-          mkdir Payload
+          mkdir -p Payload
           cp -r Runner.app Payload/
           zip -r Xper.ipa Payload
     artifacts:
