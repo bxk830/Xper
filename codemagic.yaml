@@ -16,14 +16,11 @@ workflows:
       branch_patterns:
         - pattern: main
     scripts:
-      - name: Génération automatique et propre du dossier iOS
+      - name: 🛠️ Génération automatique du dossier iOS
         script: |
-          # Force la création de la structure de projet iOS native et propre directement sur le serveur
           flutter create --platforms=ios .
-          
-          # Injection automatique des permissions Satellites GPS dans le fichier généré
-          plutil -insert NSLocationWhenInUseUsageDescription -string "Cette application nécessite l'accès au GPS pour calculer votre vitesse et afficher votre position sur la carte." ios/Runner/Info.plist
-          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "Le GPS est nécessaire en arrière-plan pour continuer le suivi de la navigation." ios/Runner/Info.plist
+          plutil -insert NSLocationWhenInUseUsageDescription -string "GPS nécessaire pour la vitesse." ios/Runner/Info.plist
+          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS nécessaire en arrière-plan." ios/Runner/Info.plist
       - name: Initialisation du trousseau de clés (Code Signing)
         script: |
           keychain initialize
@@ -33,11 +30,12 @@ workflows:
       - name: Configuration de la plateforme iOS (Podfile)
         script: |
           find . -name "Podfile" -execdir pod install \;
-      - name: Compilation de l'application (Création du fichier .ipa)
+      - name: Compilation de l'application (Mode sans signature)
         script: |
-          flutter build ipa --release --build-name=1.0.0 --build-number=1
+          # Le flag --no-codesign permet de valider le build sans compte Apple payant
+          flutter build ipa --release --no-codesign --build-name=1.0.0 --build-number=1
     artifacts:
-      - build/ios/ipa/*.ipa
+      - build/ios/archive/*.xcarchive
     publishing:
       email:
         recipients:
