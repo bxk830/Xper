@@ -12,18 +12,26 @@ workflows:
         - pattern: '*'
           include: true
     scripts:
-      - name: Generer l environnement iOS et configurer le GPS
+      - name: Preparation de l environnement iOS et simulation de l equipe
         script: |
-          flutter create . --platforms=ios
-          plutil -insert NSLocationWhenInUseUsageDescription -string "GPS necessaire pour la vitesse." ios/Runner/Info.plist
-          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS necessaire en arriere-plan." ios/Runner/Info.plist
+          flutter create --org com.bx --project-name xper --platforms=ios .
+          
+          # Insertion des clés de configuration GPS
+          plutil -insert NSLocationWhenInUseUsageDescription -string "GPS requis." ios/Runner/Info.plist
+          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS requis." ios/Runner/Info.plist
+          
+          # Injection des paramètres pour contourner la signature Xcode
+          echo "DEVELOPMENT_TEAM = NX78XYZ123" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGN_IDENTITY = -" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGNING_REQUIRED = NO" >> ios/Flutter/Release.xcconfig
+          echo "CODE_SIGNING_ALLOWED = NO" >> ios/Flutter/Release.xcconfig
       - name: Recuperer les dependances Pub
         script: |
           flutter pub get
-      - name: Compiler pour iOS
+      - name: Compilation allegee pour iOS
         script: |
-          flutter build ios --no-codesign
-      - name: Packager en IPA non signe
+          flutter build ios --release --no-codesign
+      - name: Packager en IPA pour Sideloadly
         script: |
           cd build/ios/iphoneos
           mkdir Payload
