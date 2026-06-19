@@ -1,33 +1,23 @@
-workflows:
-  ios-build:
-    name: iOS App Build
-    instance_type: mac_mini_m1
-    environment:
-      flutter: stable
-      xcode: latest
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: '*'
-          include: true
-    scripts:
-      - name: Generer l environnement iOS et configurer le GPS
-        script: |
-          flutter create --org com.bx --project-name xper --platforms=ios .
-          plutil -insert NSLocationWhenInUseUsageDescription -string "GPS necessaire pour la vitesse." ios/Runner/Info.plist
-          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS necessaire en arriere-plan." ios/Runner/Info.plist
-      - name: Recuperer les dependances Pub
-        script: |
-          flutter pub get
-      - name: Compiler pour iOS avec fausse equipe
-        script: |
-          flutter build ios --release --no-codesign --xcargs="DEVELOPMENT_TEAM=NX78XYZ123 CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="
-      - name: Packager en IPA non signe
-        script: |
-          cd build/ios/iphoneos
-          mkdir Payload
-          cp -r Runner.app Payload/
-          zip -r Xper.ipa Payload
-    artifacts:
-      - build/ios/iphoneos/*.ipa
+name: xper
+description: "Application GPS complète et allégée"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.3.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  flutter_map: ^7.0.2
+  latlong2: ^0.9.1
+  geolocator: ^12.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^4.0.0
+
+flutter:
+  uses-material-design: true
