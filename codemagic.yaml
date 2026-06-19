@@ -13,30 +13,22 @@ workflows:
       branch_patterns:
         - pattern: main
     scripts:
-      - name: 🛠️ Génération du projet iOS et désactivation forcée des sécurités Apple
+      - name: Generation du projet iOS et configuration GPS
         script: |
-          # 1. Génération propre de la structure iOS
           flutter create --org com.bx --project-name xper --platforms=ios .
-          
-          # 2. Injection des permissions GPS obligatoires
-          plutil -insert NSLocationWhenInUseUsageDescription -string "GPS nécessaire pour la vitesse." ios/Runner/Info.plist
-          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS nécessaire en arrière-plan." ios/Runner/Info.plist
-          
-          # 3. LE CORRECTIF : Modification du fichier Xcode pour injecter une fausse Team
-          sed -i '' 's/buildSettings = {/buildSettings = {\n\t\t\t\tCODE_SIGNING_ALLOWED = NO;\n\t\t\t\tCODE_SIGNING_REQUIRED = NO;\n\t\t\t\tCODE_SIGN_IDENTITY = "";\n\t\t\t\tDEVELOPMENT_TEAM = "DUMMYTEAM12";/g' ios/Runner.xcodeproj/project.pbxproj
-      - name: 📦 Récupération des dépendances Flutter
+          plutil -insert NSLocationWhenInUseUsageDescription -string "GPS necessaire pour la vitesse." ios/Runner/Info.plist
+          plutil -insert NSLocationAlwaysAndWhenInUseUsageDescription -string "GPS necessaire en arriere-plan." ios/Runner/Info.plist
+      - name: Recuperation des dependances Flutter
         script: |
           flutter packages pub get
-      - name: ⚙️ Configuration de CocoaPods
+      - name: Configuration de CocoaPods
         script: |
           find . -name "Podfile" -execdir pod install \;
-      - name: 🏗️ Compilation brute de l'application (Bypass Xcode)
+      - name: Compilation brute de l application via Ad-Hoc
         script: |
-          # On compile Xcode à accepter xcargs
-          flutter build ios --release --no-codesign --xcargs "CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY=\"\" DEVELOPMENT_TEAM=DUMMYTEAM12"
-      - name: 🗜️ Création du fichier .ipa pour Sideloadly
+          flutter build ios --release --no-codesign --xcargs "CODE_SIGN_IDENTITY=- CODE_SIGNING_REQUIRED=YES CODE_SIGNING_ALLOWED=YES"
+      - name: Creation du fichier .ipa pour Sideloadly
         script: |
-          # Packaging manuel de l'application non signée dans la structure attendue par Sideloadly
           mkdir -p build/ios/iphoneos/Payload
           cp -r build/ios/iphoneos/Runner.app build/ios/iphoneos/Payload/
           cd build/ios/iphoneos
