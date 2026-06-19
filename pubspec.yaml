@@ -1,0 +1,38 @@
+workflows:
+  ios-xper-release:
+    name: Build iOS Automatique - Xper
+    instance_type: mac_mini_m1 # Utilisation d'un Mac pour compiler pour iOS
+    max_build_duration: 30
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      vars:
+        XCODE_BUNDLE_IDENTIFIER: "com.bx.xper"
+        APP_NAME: "Xper"
+    triggering:
+      events:
+        - push
+      branches:
+        - main # Déclenche le build dès que vous poussez sur la branche principale
+    scripts:
+      - name: Initialisation du trousseau de clés (Code Signing)
+        script: |
+          keychain initialize
+      - name: Récupération des dépendances Flutter
+        script: |
+          flutter packages pub get
+      - name: Configuration de la plateforme iOS (Podfile)
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Compilation de l'application (Création du fichier .ipa)
+        script: |
+          # Note : Si vous n'avez pas encore configuré vos certificats Apple sur Codemagic,
+          # remplacez la ligne ci-dessous par : flutter build ipa --release --no-codesign
+          flutter build ipa --release --build-name=1.0.0 --build-number=1
+    artifacts:
+      - build/ios/ipa/*.ipa # Rend le fichier final téléchargeable sur votre tableau de bord Codemagic
+    publishing:
+      email:
+        recipients:
+          - bx-dev@exemple.com # Remplacer par votre propre adresse email pour recevoir les notifications de succès/échec
