@@ -31,7 +31,7 @@ workflows:
         script: |
           # On génère le fichier Runner.app sans demander de compte Apple
           flutter build ios --release --no-codesign
-      - name: 🗜️ Création du fichier .ipa pour Sideloadly
+      - name: Création du fichier .ipa pour Sideloadly
         script: |
           # Sideloadly requiert une structure spécifique : un zip Payload/ contenant l'application
           mkdir -p build/ios/iphoneos/Payload
