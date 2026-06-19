@@ -21,6 +21,7 @@ class _MapScreenState extends State<MapScreen> {
   double _speed = 0.0;
   List<LatLng> _route = [];
   bool _isGpsLocked = false;
+  bool _isMapReady = false; // Sécurité anti-crash pour le MapController
 
   @override
   void initState() {
@@ -31,6 +32,7 @@ class _MapScreenState extends State<MapScreen> {
   @override
   void dispose() {
     _gpsSubscription?.cancel();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -40,7 +42,7 @@ class _MapScreenState extends State<MapScreen> {
       return;
     }
     
-    // 2. Gestion stricte des permissions
+    // 2. Gestion des permissions
     LocationPermission perm = await Geolocator.checkPermission();
     if (perm == LocationPermission.none) {
       perm = await Geolocator.requestPermission();
@@ -61,17 +63,27 @@ class _MapScreenState extends State<MapScreen> {
         });
       }
     } catch (e) {
-      // En cas d'échec du fix immédiat, on force le déblocage de l'interface
-      setState(() {
-        _isGpsLocked = true;
-      });
+      // En cas d'échec du fix initial, on tente de récupérer la dernière position connue
+      Position? lastPos = await Geolocator.getLastKnownPosition();
+      if (lastPos != null && mounted) {
+        setState(() {
+          _pos = LatLng(lastPos.latitude, lastPos.longitude);
+          _isGpsLocked = true;
+        });
+      } else {
+        // Fallback ultime pour débloquer l'écran si le GPS est totalement inside/indisponible
+        setState(() {
+          _pos = const LatLng(46.2276, 2.2137); // Centre de la France en attendant le signal
+          _isGpsLocked = true;
+        });
+      }
     }
 
-    // 4. Flux de mise à jour en mouvement
+    // 4. Flux de mise à jour en temps réel
     _gpsSubscription = Geolocator.getPositionStream(
       locationSettings: const LocationSettings(
         accuracy: LocationAccuracy.bestForNavigation, 
-        distanceFilter: 2, // Sensibilité accrue à 2 mètres pour coller à la route
+        distanceFilter: 2, // Sensibilité à 2 mètres pour la réactivité sur route
       ),
     ).listen((Position pos) {
       if (!mounted) return;
@@ -79,13 +91,17 @@ class _MapScreenState extends State<MapScreen> {
         _pos = LatLng(pos.latitude, pos.longitude);
         _speed = pos.speed > 0 ? pos.speed * 3.6 : 0.0;
       });
-      _controller.move(_pos, _controller.camera.zoom);
+      
+      // On déplace la caméra uniquement si le composant graphique de la carte est prêt
+      if (_isMapReady) {
+        _controller.move(_pos, _controller.camera.zoom);
+      }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    // Écran d'attente pendant l'acquisition du signal GPS initial
+    // Écran d'attente sombre pendant l'acquisition du signal GPS initial
     if (!_isGpsLocked) {
       return const Scaffold(
         backgroundColor: Colors.black,
@@ -105,7 +121,10 @@ class _MapScreenState extends State<MapScreen> {
             mapController: _controller,
             options: MapOptions(
               initialCenter: _pos, 
-              initialZoom: 16.0, // Zoom plus proche pour la navigation
+              initialZoom: 16.0,
+              onMapReady: () {
+                _isMapReady = true; // La carte est chargée, le contrôleur peut être utilisé sereinement
+              },
             ),
             children: [
               TileLayer(
@@ -167,7 +186,7 @@ class _MapScreenState extends State<MapScreen> {
             ),
           ),
           
-          // Compteur de vitesse
+          // Compteur de vitesse style Waze
           Positioned(
             bottom: 30, 
             left: 20,
